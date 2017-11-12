@@ -27,8 +27,7 @@ import javax.swing.JPanel;
 import javax.swing.Timer;
 
 import bots.*;
-import OldBots.*;
-import SmartBot.*;
+
 
 /**
  * <b>Introduction</b>
@@ -175,7 +174,12 @@ import SmartBot.*;
  * @version <br>1.10 - Rowbottom thickened bullets to increase visibility
  * @version <br>1.11 (Nov 6 2017) - Rowbottom increased NUM_BOTS and screen size to large bounds and fixed hardcoded references
  * @version <br>1.12 (Nov 6.2017) - Rowbottom Increased bot radius to 13 and increased movement and bullet speed
- * @author Sam Scott
+ * @version <br>2.0 (November 15, 2015) - Rowbottom added limited ammo functionality.  Bots start out with limited ammo and cannot fire if numBullets < 1
+ * @version <br>2.1 (November 16, 2015) - Rowbottom extends limited ammo functionality so that liveBots can pickup used ammo off deadBots. 
+ * @version <br>2.2 (November 11, 2017) - Rowbottom carries fixes and tweaks made to BattleBots 1 to BattleBots 2.
+ 
+ 
+ @author Sam Scott
  *
  */
 public class BattleBotArena extends JPanel implements MouseListener, MouseWheelListener, MouseMotionListener, ActionListener, Runnable {
@@ -256,11 +260,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	/**
 	 * points per kill 
 	 */
-	public static final int 	KILL_SCORE = 5;
+	public static final int 	KILL_SCORE = 10;//ROWBOTTOM Changed from 5 to promote killing
 	/**
-	 * survival points (multiplied by round number)
+	 * survival points 
 	 */
-	public static final double 	POINTS_PER_SECOND = 0.1;
+	public static final double 	POINTS_PER_SECOND = 0.05; //ROWBOTTOM changed from 0.1 to discourage camping
 	/**
 	 * points per unused second of processor time (mostly for breaking ties)
 	 */
@@ -281,11 +285,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	/**
 	 * Round time, in seconds
 	 */
-	public static final int 	TIME_LIMIT = 60;//ROWBOTTOM - changed from 90 sec
+	public static final int 	TIME_LIMIT = 90;//ROWBOTTOM - Need this much time to encourage looting
 	/**
 	 * TIME_LIMIT / SECS_PER_MSG = Number of messages allowed per round
 	 */
-	public static final double 	SECS_PER_MSG = 5;
+	public static final double 	SECS_PER_MSG = 5; // limits a bot to 18 messages per round
 	/**
 	 * CPU limit per Bot per round
 	 */
@@ -311,6 +315,19 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	 * Maximum message length
 	 */
 	public static final int MAX_MESSAGE_LENGTH = 200;
+	
+	/**		
+	 * Initial ammo as part of limited ammo functionality		
+	 * !Passed to the botInfo for its value.		
+	 */		
+	public static final int BULLETS_LEFT = 20;//ROWBOTTOM Ammo		
+		
+	/**		
+	 * When ELIMINATIONS_PER_ROUND is set to 0 then 		
+	 * NUM_ROUNDS determines the final round		
+	 */		
+	private static final int NUM_ROUNDS = 30;//ROWBOTTOM added to limit number of rounds.
+	
 	//**************************************
 
 	// OTHER ARENA CONSTANTS -- DON'T CHANGE
@@ -320,7 +337,6 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	 */
 	private static final int TEXT_BUFFER = 100;
 
-	private static final int NUM_ROUNDS = 10;//ROWBOTTOM added to limit number of rounds.
 	/**
 	 * How fast the clock flashes when game paused
 	 */
@@ -426,7 +442,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	 */
 	private boolean soundOn = true;
 	/**
-	 * The current speed multiplier
+	 * The starting speed multiplier
 	 */
 	private int speed = 8;
 	/**
@@ -801,10 +817,10 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		// In test mode, spam the message area with these instructions
 		if (state == TEST_MODE)
 		{
-			sendMessage(-1,"Battle Bots, by Sam Scott (sam.scott@tdsb.on.ca)");
+			sendMessage(-1,"Battle Bots, by Sam Scott and augmented by Nathan Rowbottom");
 			sendMessage(-1,"------------------------------------------------");
-			sendMessage(-1,"Developed in 2011 as a programming challenge for my current and");
-			sendMessage(-1,"former grade 12 (ICS4U) students.");
+			sendMessage(-1,"Developed in 2011 as a programming challenge for");
+			sendMessage(-1,"grade 12 (ICS4U) students.");
 			sendMessage(-1,"    ");
 			sendMessage(-1,"Each bot is in its own class, and is under its own control. Bots");
 			sendMessage(-1,"declare their names once at the beginning, and can declare and");
@@ -1070,7 +1086,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 							boolean shotOK = false;				// can shoot?
 							for (int j=0; j<NUM_BULLETS; j++)
 							{
-								if (bullets[i][j] == null)
+								if (bullets[i][j] == null && currentBot.getBulletsLeft() > 0))
 									shotOK = true;
 							}
 							// 2b. The bots have to be passed temp arrays of bullets so they can't
@@ -1124,47 +1140,55 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 								break;
 							case FIREUP:
 								for(int j=0; j<NUM_BULLETS; j++) // looks for the first unused bullet slot
-									if (bullets[i][j] == null)
+									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()+Bot.RADIUS, botsInfo[i].getY()-1, 0, -BULLET_SPEED);
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
+										}
 										break;
+										
 									}
 								break;
 							case FIREDOWN:
 								for (int j=0; j<NUM_BULLETS; j++)// looks for the first unused bullet slot
-									if (bullets[i][j] == null)
+									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()+Bot.RADIUS, botsInfo[i].getY()+Bot.RADIUS * 2 + 1, 0, BULLET_SPEED);
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
+										}
 										break;
 									}
 								break;
 							case FIRELEFT:
 								for (int j=0; j<NUM_BULLETS; j++)// looks for the first unused bullet slot
-									if (bullets[i][j] == null)
+									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()-1, botsInfo[i].getY()+Bot.RADIUS, -BULLET_SPEED, 0);
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
+										}
 										break;
 									}
 								break;
 							case FIRERIGHT:
 								for (int j=0; j<NUM_BULLETS; j++)// looks for the first unused bullet slot
-									if (bullets[i][j] == null)
+									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()+Bot.RADIUS * 2 + 1, botsInfo[i].getY()+Bot.RADIUS, BULLET_SPEED, 0);
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
-										break;
-									}
+										}
+										break;									}
 								break;
 							case SEND_MESSAGE:
 								String msg = null;
@@ -1197,6 +1221,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 										double d = Math.sqrt(Math.pow(botsInfo[i].getX()-botsInfo[j].getX(),2)+Math.pow(botsInfo[i].getY()-botsInfo[j].getY(),2));
 										if (d < Bot.RADIUS*2)
 										{
+											//ROWBOTTOM handles the looting from dead bodies
+											if (botsInfo[j].getBulletsLeft()>0&&botsInfo[j].isDead()){		
+-												botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft()+botsInfo[j].getBulletsLeft());//live bot gets the bullets		
+-												botsInfo[j].setBulletsLeft(0);		//the corpse is emptied
+-											}
 											// reverse the previous move on collision
 											if (move == UP)
 												botsInfo[i].setY(botsInfo[i].getY()+BOT_SPEED);
