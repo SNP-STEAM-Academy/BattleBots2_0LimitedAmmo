@@ -12,15 +12,16 @@ import bots.Bot;
  * for live Bots and one for dead Bots. No information here is modifiable from
  * outside the <i>arena</i> package, and only the public information about the bots
  * is accessible outside the <i>arena</i> package.
+ *
  * @author sam.scott
  * @version 1.0 (March 3, 2011)
- * 
- * Added limited ammo functionality
- * botInfo now contains bulletsLeft which relates ammo level. 
- * Corresponds to changes made to BattleBotArena to allow ammo pick up off dead bots 
- * and not being able to fire if out of ammo
- * @author rowbottomn
- * @version 2.1 (Nov 15 2015)
+ * 		
+ * Added limited ammo functionality		
+ * botInfo now contains bulletsLeft which relates ammo level. 		
+ * Corresponds to changes made to BattleBotArena to allow ammo pick up off dead bots 		
+ * and not being able to fire if out of ammo		
+ * @author rowbottomn		
+ * @version 2.0 (Nov 15 2015)
  */
 public class BotInfo {
 
@@ -96,11 +97,12 @@ public class BotInfo {
 	 * Decimal formatting object.
 	 */
 	private DecimalFormat df = new DecimalFormat("0.0");
-	/**
-	 * Ammo remaining - when 0 remaining bot cannot fire.
-	 */	
-	private int bulletsLeft = BattleBotArena.BULLETS_LEFT;
 
+	/**		
+	 * Ammo remaining - when 0 remaining bot cannot fire.		
+	 */			
+	private int bulletsLeft = BattleBotArena.BULLETS_LEFT;
+	
 	/**
 	 * Constructor
 	 * @param x Starting x location
@@ -108,7 +110,6 @@ public class BotInfo {
 	 * @param botNum Bot ID number
 	 * @param name Bot name
 	 */
-	
 	protected BotInfo(double x, double y, int botNum, String name)
 	{
 		this.x = x;
@@ -398,15 +399,20 @@ public class BotInfo {
 	public int getNumKills() {
 		return numKills;
 	}
-
-	public int getBulletsLeft() {
-		return bulletsLeft;
-	}
-
+	
 	/**
-	 * @param bulletsLeft the bulletsLeft to set
-	 */
-	protected void setBulletsLeft(int bulletsLeft) {
-		this.bulletsLeft = bulletsLeft;
+	* @return Number of bullets remaining in this bot
+	*/
+	public int getBulletsLeft() {		
+		return bulletsLeft;		
+	}		
+		
+	/**		
+	 * @param bulletsLeft the bulletsLeft to set		
+	 */	
+	
+	protected void setBulletsLeft(int bulletsLeft) {		
+		this.bulletsLeft = bulletsLeft;		
 	}
+	
 }

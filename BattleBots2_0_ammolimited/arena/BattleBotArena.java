@@ -2,10 +2,12 @@ package arena;
 
 import java.applet.Applet;
 import java.applet.AudioClip;
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -23,9 +25,9 @@ import java.util.LinkedList;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.Timer;
-import java.math.*;
 
 import bots.*;
+
 
 /**
  * <b>Introduction</b>
@@ -165,17 +167,20 @@ import bots.*;
  * @version <br>1.5 (March 31, 2011) - Moved bullet processing out of the Bot loop -- now bots are moved first, then bullets are moved (thanks again to Zong Li
  * 									   for pointing out this issue)
  * @version <br>1.6 (May 30, 2011)   - Shuts off sound on stop/destroy now
- * @version <br>2.0 (August 9, 2011) - Converted to an application that can be JAR'ed -- the mouse wheel was not working well when embedded in a web page
- * @version <br>2.1 (November 30, 2011) - Fixed audio bug
- * @author Sam Scott 
- * 
- * @version <br>2.2 (April 20, 2015) - Rowbottom added modulus to select extra bots. Sentries excluded. 
- * 										Changed BOT_SPEED to 2 to prevent bots hanging on deadBots
- *  
- * @version <br>3.0 (November 15, 2015) - Rowbottom added limited ammo functionality.  Bots start out with limited ammo and cannot fire if numBullets < 1
- * @version <br>3.1 (November 16, 2015) - Rowbottom extends limited ammo functionality so that liveBots can pickup used ammo off deadBots.
- * @version<br>3.2 (November 15, 2015) - Rowbottom changed game parameters to enhance gameplay and extend rounds change scoring 
- * 
+ * @version <br>1.7 (August 9, 2011) - Converted to an application that can be JAR'ed -- the mouse wheel was not working well when embedded in a web page
+ * @version <br>1.8 (November 30, 2011) - Fixed audio bug *
+ * @version <br>1.9 (May 8, 2015) - Rowbottom changed BOT_SPEED to 2 and made rounds 30 sec and removal rate to 1 bot per round.
+ * @version <br>1.9.1(May 2016) - Rowbottom changed functionality to allow running large number of rounds and adjusted scoring 
+ * @version <br>1.10 - Rowbottom thickened bullets to increase visibility
+ * @version <br>1.11 (Nov 6 2017) - Rowbottom increased NUM_BOTS and screen size to large bounds and fixed hardcoded references
+ * @version <br>1.12 (Nov 6.2017) - Rowbottom Increased bot radius to 13 and increased movement and bullet speed
+ * @version <br>2.0 (November 15, 2015) - Rowbottom added limited ammo functionality.  Bots start out with limited ammo and cannot fire if numBullets < 1
+ * @version <br>2.1 (November 16, 2015) - Rowbottom extends limited ammo functionality so that liveBots can pickup used ammo off deadBots. 
+ * @version <br>2.2 (November 11, 2017) - Rowbottom carries fixes and tweaks made to BattleBots 1 to BattleBots 2.
+ 
+ 
+ @author Sam Scott
+ *
  */
 public class BattleBotArena extends JPanel implements MouseListener, MouseWheelListener, MouseMotionListener, ActionListener, Runnable {
 
@@ -230,11 +235,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	/**
 	 * Right edge of the screen
 	 */
-	public static final int RIGHT_EDGE = 700; // also arena panel width
+	public static final int RIGHT_EDGE = 1260; //ROWBOTTOM - changed from 700// also arena panel width
 	/**
 	 * Bottom edge of the screen
 	 */
-	public static final int BOTTOM_EDGE = 500; // arena panel height is this constant + TEXT_BUFFER
+	public static final int BOTTOM_EDGE = 896; //ROWBOTTOM - changed from 500// arena panel height is this constant + TEXT_BUFFER
 	/**
 	 * Left edge of the screen
 	 */
@@ -252,15 +257,14 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	// GAME CONFIGURATION - CHANGE WITH CAUTION
 	// BOTS ALSO HAVE ACCESS TO THESE CONSTANTS
 	//*****************************************
-	
 	/**
-	 * points per kill (multiplied by round number)
+	 * points per kill 
 	 */
-	public static final int 	KILL_SCORE = 10;//changed from 5
+	public static final int 	KILL_SCORE = 10;//ROWBOTTOM Changed from 5 to promote killing
 	/**
-	 * survival points (multiplied by round number)
+	 * survival points 
 	 */
-	public static final double 	POINTS_PER_SECOND = 0.05;//changed from 0.1
+	public static final double 	POINTS_PER_SECOND = 0.05; //ROWBOTTOM changed from 0.1 to discourage camping
 	/**
 	 * points per unused second of processor time (mostly for breaking ties)
 	 */
@@ -273,19 +277,19 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	 * true = scores between rounds are cumulative
 	 * false = highest scoring Bot in last round is declared the winner
 	 */
-	public static final boolean CUMULATIVE_SCORING = true;
+	public static final boolean CUMULATIVE_SCORING = true;//ROWBOTTOM added variable to support multiple rounds
 	/**
 	 * Number of bots to drop out per round
 	 */
-	public static final int	 	ELIMINATIONS_PER_ROUND = 0;//changed from 5
+	public static final int	 	ELIMINATIONS_PER_ROUND = 0;//ROWBOTTOM added variable to support multiple rounds
 	/**
 	 * Round time, in seconds
 	 */
-	public static final int 	TIME_LIMIT = 100;
+	public static final int 	TIME_LIMIT = 90;//ROWBOTTOM - Need this much time to encourage looting
 	/**
 	 * TIME_LIMIT / SECS_PER_MSG = Number of messages allowed per round
 	 */
-	public static final double 	SECS_PER_MSG = 5;
+	public static final double 	SECS_PER_MSG = 5; // limits a bot to 18 messages per round
 	/**
 	 * CPU limit per Bot per round
 	 */
@@ -294,7 +298,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	 * Total number of Bots in round 1 (if you have fewer than this, the rest of the spots
 	 * in the array will be filled with Drones, RandBots, and Sentries).
 	 */
-	public static final int 	NUM_BOTS = 16;
+	public static final int 	NUM_BOTS = 25;//ROWBOTTOM NOV 6 2017 Changed to 25
 	/**
 	 * Number of bullets on screen at once for each bot
 	 */
@@ -302,34 +306,37 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	/**
 	 * Bot speed in pixels/frame
 	 */
-	public static final double 	BOT_SPEED = 2.0;
+	public static final double 	BOT_SPEED = 3;//ROWBOTTOM changed from 2.5 to fix game balance and bots getting hung up on tombstones
 	/**
 	 * Bullet speed in pixels/frame
 	 */
-	public static final double 	BULLET_SPEED = 4;
+	public static final double 	BULLET_SPEED = 6;
 	/**
 	 * Maximum message length
 	 */
 	public static final int MAX_MESSAGE_LENGTH = 200;
-	/**
-	 * Initial ammo as part of limited ammo functionality
-	 * !Passed to the botInfo for its value.
-	 */
-	public static final int BULLETS_LEFT = 20;//ROWBOTTOM Ammo!
-
-	/**
-	 * When ELIMINATIONS_PER_ROUND is set to 0 then 
-	 * MAX_ROUNDS determines the final round
-	 */
-	public static final int MAX_ROUNDS = 50;//ROWBOTTOM Rounds will be MAX_ROUNDS + 1
-
+	
+	/**		
+	 * Initial ammo as part of limited ammo functionality		
+	 * !Passed to the botInfo for its value.		
+	 */		
+	public static final int BULLETS_LEFT = 20;//ROWBOTTOM Ammo		
+		
+	/**		
+	 * When ELIMINATIONS_PER_ROUND is set to 0 then 		
+	 * NUM_ROUNDS determines the final round		
+	 */		
+	private static final int NUM_ROUNDS = 30;//ROWBOTTOM added to limit number of rounds.
+	
 	//**************************************
+
 	// OTHER ARENA CONSTANTS -- DON'T CHANGE
 	//**************************************
 	/**
 	 * Size of message area at bottom of screen.
 	 */
 	private static final int TEXT_BUFFER = 100;
+
 	/**
 	 * How fast the clock flashes when game paused
 	 */
@@ -435,9 +442,9 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	 */
 	private boolean soundOn = true;
 	/**
-	 * The current speed multiplier
+	 * The starting speed multiplier
 	 */
-	private int speed = 1;//changed from 1
+	private int speed = 8;
 	/**
 	 * Controls the flashing if the game is paused
 	 */
@@ -612,28 +619,34 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		// *** INSERT PLAYER BOTS HERE. Use any array numbers you like
 		// *** as the bots will be shuffled again later.
 		// *** Any empty spots will be filled with standard arena bots.
-		 // bots[9] = new AIBot();
+		//bots[7] = new SmartBot();  // Rowbottom
+		//bots[8] = new DumbBot();//Rowbottom2
+	
+		
 
+		//bots[15] = new RandBot();  
+		
 
-
-		// *******************************
-
+		// *******************************	
 		// Remaining slots filled with Drones, RandBots, and sentryBots.
+		//ROWBOTTOM modified to only have drones
 		int c = 1;
 		for (int i=0; i<NUM_BOTS; i++)
 		{
 			if (bots[i] == null)
 			{
-				if (c%1 ==0)
+				//bots[i] = new DumbBot();
+				//if (c%i==1)
 					bots[i] = new Drone();
-				else if (c%2 ==1)
-					bots[i] = new RandBot();
-				else
-				{
-					bots[i] = new SentryBot();
-					c=0;
-				}
-				c++;
+			//	else {// if (c==2)
+			//		bots[i] = new RandBot();
+			//	}
+//				else
+//				{
+//					bots[i] = new SentryBot();
+//					c=0;
+//				}
+			//	c++;
 			}
 		}
 
@@ -696,7 +709,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		addMouseMotionListener (this);
 		addMouseWheelListener (this);
 		// Set size of panel and make it focusable
-		setPreferredSize(new Dimension(700, 600));
+		setPreferredSize(new Dimension(RIGHT_EDGE, BOTTOM_EDGE+TEXT_BUFFER));
 		setFocusable(true);
 	}
 
@@ -804,7 +817,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		// In test mode, spam the message area with these instructions
 		if (state == TEST_MODE)
 		{
-			sendMessage(-1,"Battle Bots");
+			sendMessage(-1,"Battle Bots, by Sam Scott and augmented by Nathan Rowbottom");
 			sendMessage(-1,"------------------------------------------------");
 			sendMessage(-1,"Developed in 2011 as a programming challenge for");
 			sendMessage(-1,"grade 12 (ICS4U) students.");
@@ -945,8 +958,9 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 			// **** game over?
 			if (state != TEST_MODE && (timePlayed >= TIME_LIMIT || botsLeft <= 1))
 			{
+							
 				state = GAME_OVER;
-				resetGameSpeed();
+				//resetGameSpeed();
 				endFrameCounter = END_FRAME_COUNT; // start the instant replay
 				replayCurrentFrame = replayEndFrame;
 				drone.stop(); // stop the sound
@@ -975,32 +989,35 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 				// find the winner
 				sortedBots = sortedBotInfoArray(true);
 				winnerID = sortedBots[0].getBotNumber();
-				if (totalOut >= NUM_BOTS-1 || round >= MAX_ROUNDS) // is this the last round?
+				if (totalOut >= NUM_BOTS-1) // is this the last round?
 				{
 					sendMessage(-1,"Final round complete. "+sortedBots[0].getName()+" is the winner.");
 					state = WINNER;
 				}
-				else
-					if (CUMULATIVE_SCORING) // different message depending on scoring type
+				else{
+					if (CUMULATIVE_SCORING){ // different message depending on scoring type
 						sendMessage(-1,"Round "+round+" complete. "+sortedBots[0].getName()+" is leading.");
-				//ROWBOTTOM
-						if (round <= MAX_ROUNDS && ELIMINATIONS_PER_ROUND == 0)	// clicked on the wait to start message bar
-						{
-						if (soundOn)
-							fanfare.play();
-						countDown = 60;
-						startTime = System.currentTimeMillis();
-						gameTimer.start();
-						if (round == MAX_ROUNDS)
-							sendMessage(SYSTEM_MSG,"Final Round starting. Good luck!");
-						else
-							sendMessage(SYSTEM_MSG,"Round "+round+" starting. Good luck!");
-						state = GAME_ON;
-						reset();
+						if (round < NUM_ROUNDS){
+							if (soundOn)
+								fanfare.play();
+							countDown = 60;
+							startTime = System.currentTimeMillis();
+							gameTimer.start();
+							if (botsLeft <= ELIMINATIONS_PER_ROUND+1)
+								sendMessage(SYSTEM_MSG,"Final Round starting. Good luck!");
+							else
+								sendMessage(SYSTEM_MSG,"Round "+round+" starting. Good luck!");
+							state = GAME_ON;
+							reset();
+						}
+						else {
+							sendMessage(-1,"Final round complete. "+sortedBots[0].getName()+" is the winner.");
+							state = WINNER;
+						}
 					}
 					else
 						sendMessage(-1,"Round "+round+" complete. "+sortedBots[0].getName()+" is the winner.");
-
+				}
 			}
 			else //**** GAME IS ON
 			{
@@ -1066,14 +1083,12 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 							// 2. set up to get the next move
 							// 2a. Can the current bot shoot?
 							BotInfo currentBot = botsInfo[i]; 	// current Bot
-
 							boolean shotOK = false;				// can shoot?
 							for (int j=0; j<NUM_BULLETS; j++)
 							{
-								if (bullets[i][j] == null && currentBot.getBulletsLeft() > 0)
+								if (bullets[i][j] == null && currentBot.getBulletsLeft() > 0))
 									shotOK = true;
 							}
-							//System.out.println("Bot"+i+"'s bullets"+currentBot.getBulletsLeft()+","+shotOK);
 							// 2b. The bots have to be passed temp arrays of bullets so they can't
 							// mess them up (e.g. by setting array entries to null)
 							Bullet[] cleanBulletArray = new Bullet[bulletList.size()];
@@ -1124,15 +1139,17 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 								botsInfo[i].setX(botsInfo[i].getX()+BOT_SPEED);
 								break;
 							case FIREUP:
-								for (int j=0; j<NUM_BULLETS; j++) // looks for the first unused bullet slot
+								for(int j=0; j<NUM_BULLETS; j++) // looks for the first unused bullet slot
 									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()+Bot.RADIUS, botsInfo[i].getY()-1, 0, -BULLET_SPEED);
-										botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
+										}
 										break;
+										
 									}
 								break;
 							case FIREDOWN:
@@ -1140,10 +1157,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()+Bot.RADIUS, botsInfo[i].getY()+Bot.RADIUS * 2 + 1, 0, BULLET_SPEED);
-										botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
+										}
 										break;
 									}
 								break;
@@ -1152,10 +1170,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()-1, botsInfo[i].getY()+Bot.RADIUS, -BULLET_SPEED, 0);
-										botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
+										}
 										break;
 									}
 								break;
@@ -1164,12 +1183,12 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 									if (bullets[i][j] == null&&botsInfo[i].getBulletsLeft()>0)
 									{
 										bullets[i][j] = new Bullet(botsInfo[i].getX()+Bot.RADIUS * 2 + 1, botsInfo[i].getY()+Bot.RADIUS, BULLET_SPEED, 0);
-										botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
-										if (state != TEST_MODE)
+										if (state != TEST_MODE){
+											botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft() - 1);//reduce the amount of bullets by one.
 											if (soundOn)
 												shot.play();
-										break;
-									}
+										}
+										break;									}
 								break;
 							case SEND_MESSAGE:
 								String msg = null;
@@ -1202,10 +1221,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 										double d = Math.sqrt(Math.pow(botsInfo[i].getX()-botsInfo[j].getX(),2)+Math.pow(botsInfo[i].getY()-botsInfo[j].getY(),2));
 										if (d < Bot.RADIUS*2)
 										{
-											if (botsInfo[j].getBulletsLeft()>0&&botsInfo[j].isDead()){
-												botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft()+botsInfo[j].getBulletsLeft());
-												botsInfo[j].setBulletsLeft(0);
-											}
+											//ROWBOTTOM handles the looting from dead bodies
+											if (botsInfo[j].getBulletsLeft()>0&&botsInfo[j].isDead()){		
+-												botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft()+botsInfo[j].getBulletsLeft());//live bot gets the bullets		
+-												botsInfo[j].setBulletsLeft(0);		//the corpse is emptied
+-											}
 											// reverse the previous move on collision
 											if (move == UP)
 												botsInfo[i].setY(botsInfo[i].getY()+BOT_SPEED);
@@ -1292,7 +1312,6 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		{
 			if (--pauseCount <= 0)
 				pauseCount = PAUSE_FLASH_TIME;
-
 			if (++replayCounter >= this.REPLAY_SPEED)
 			{
 				replayCounter = 0;
@@ -1325,6 +1344,16 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		}
 	}
 
+	/**
+	 * Returns the Bullet refernce in the Bullet Array
+	 * @param the bullet array to index through
+	 * @return bullet available for firing
+	 */
+	private Bullet getBullet(Bullet[] bullets){
+		
+		return null;
+	}
+	
 	/**
 	 * Sends a broadcast message to the bots.
 	 * @param id Message sender
@@ -1375,35 +1404,41 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 	 */
 	private double currentScore(int botNum, boolean gameOver)
 	{
-		double score;
-		
-		if (ELIMINATIONS_PER_ROUND==0){
-			score = KILL_SCORE * botsInfo[botNum].getNumKills() - ERROR_PENALTY * botsInfo[botNum].getNumExceptions() + EFFICIENCY_BONUS * (PROCESSOR_LIMIT - botsInfo[botNum].getThinkTime());			
-			if (score < 0)
-				score = 0;
-			if (gameOver)
-				score += TIME_LIMIT * POINTS_PER_SECOND;
-			else
-			{
-				if (botsInfo[botNum].getTimeOfDeath() > 0)
-					score += botsInfo[botNum].getTimeOfDeath()*POINTS_PER_SECOND;
-				else
-					score += timePlayed*POINTS_PER_SECOND;
-			}
+		double score = 0;
+		if (ELIMINATIONS_PER_ROUND == 0){
+			score = KILL_SCORE * botsInfo[botNum].getNumKills()  - ERROR_PENALTY * botsInfo[botNum].getNumExceptions() + EFFICIENCY_BONUS * (PROCESSOR_LIMIT - botsInfo[botNum].getThinkTime());
 		}
 		else{
-			score = KILL_SCORE * botsInfo[botNum].getNumKills() * (round+1.0)/2 - ERROR_PENALTY * botsInfo[botNum].getNumExceptions() + EFFICIENCY_BONUS * (PROCESSOR_LIMIT - botsInfo[botNum].getThinkTime());			
-			if (score < 0)
-				score = 0;
-			if (gameOver)
-				score += TIME_LIMIT * POINTS_PER_SECOND * (round+1.0)/2;
-			else
-			{
-				if (botsInfo[botNum].getTimeOfDeath() > 0)
-					score += botsInfo[botNum].getTimeOfDeath()*POINTS_PER_SECOND*(round+1.0)/2;
-				else
-					score += timePlayed*POINTS_PER_SECOND*(round+1.0)/2;
+			score = KILL_SCORE * botsInfo[botNum].getNumKills() * (round+1.0)/2 - ERROR_PENALTY * botsInfo[botNum].getNumExceptions() + EFFICIENCY_BONUS * (PROCESSOR_LIMIT - botsInfo[botNum].getThinkTime());
+		}
+		
+		if (score < 0)
+			score = 0;
+		if (gameOver)
+			if (ELIMINATIONS_PER_ROUND == 0){
+			score += TIME_LIMIT * 0.1 ;
 			}
+			else {
+				score += TIME_LIMIT * 0.1 * (round+1.0)/2;
+			}
+		
+		else
+		{
+			if (botsInfo[botNum].getTimeOfDeath() > 0)
+				if (ELIMINATIONS_PER_ROUND == 0){
+					score += botsInfo[botNum].getTimeOfDeath()*POINTS_PER_SECOND/2;
+				}
+				else {
+					score += botsInfo[botNum].getTimeOfDeath()*POINTS_PER_SECOND*(round+1.0)/2;
+				}
+			else
+				if (ELIMINATIONS_PER_ROUND == 0){
+					score += timePlayed*POINTS_PER_SECOND;
+				}
+				else{
+					score += timePlayed*POINTS_PER_SECOND*(round + 1.0)/2;
+			
+				}
 		}
 		return score < 0?0:score;
 	}
@@ -1485,6 +1520,8 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		{
 			// get the next image from the rotating instant replay buffer
 			Graphics g = replayImages[replayEndFrame].getGraphics();
+			Graphics2D g2D = (Graphics2D)(g);  //Rowbottom to increase bullet thickness
+
 
 			// a little trick to get imageobserver callbacks when the bot images are loaded
 			// may not be necessary any more in 2.0
@@ -1549,7 +1586,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 				for (int j=0; j<NUM_BULLETS; j++)
 				{
 					if (bullets[i][j] != null)
-						bullets[i][j].draw(g);
+						bullets[i][j].draw(g2D);//rowbottom to draw thicker bullet
 				}
 			}
 
@@ -1574,9 +1611,9 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 					if (showNames)
 						title = botsInfo[i].getName();
 					else if (showScores)
-						title = ""+df.format(botsInfo[i].getScore());
-					else if (showTeams)
-						title = botsInfo[i].getTeamName();
+						title = ""+df.format(botsInfo[i].getCumulativeScore());//Rowbottom
+					else if (showTeams)//Rowbottom changed teams to show ammo
+						//title = botsInfo[i].getAmmo();
 
 					// x calculation based on x-width of 0.5 font size with a one pixel spacer between letters
 					g.drawString(title, (int)(botsInfo[i].getX()+Bot.RADIUS-(title.length()/2.0*(NAME_FONT*0.5+1))+0.5), (int)(botsInfo[i].getY()-1+0.5));
@@ -1722,79 +1759,80 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 			}
 			else if (state == WAIT_TO_START)
 			{
+				g.setColor(new Color(60,60,60,175));
+				g.fillRect(0, BOTTOM_EDGE - 30, RIGHT_EDGE, 26);
+				g.setColor(Color.white);
+				g.setFont(new Font("MonoSpaced",Font.BOLD, 22));
+				if (botsLeft <= ELIMINATIONS_PER_ROUND+1)
+					g.drawString("Click This Bar to Start the Final Round.",10,BOTTOM_EDGE - 10);
+				else
+					g.drawString("Click This Bar to Start Round "+round+".",10,BOTTOM_EDGE - 10);
 
-
-					g.setColor(new Color(60,60,60,175));
-					g.fillRect(0, BOTTOM_EDGE - 30, RIGHT_EDGE, 26);
-					g.setColor(Color.white);
-					g.setFont(new Font("MonoSpaced",Font.BOLD, 22));
-
+				// display the rules
+				g.setColor(Color.white);
+				if (round == 1)
+				{
+					g.setFont(new Font("MonoSpaced",Font.BOLD, 80));
+					g.drawString("Battle", RIGHT_EDGE-350, TOP_EDGE+90);
+					g.drawString("Bots", RIGHT_EDGE-300, TOP_EDGE+160);
+				}
+				else
+				{
+					g.setFont(new Font("MonoSpaced",Font.BOLD, 80));
 					if (botsLeft <= ELIMINATIONS_PER_ROUND+1)
-						g.drawString("Click This Bar to Start the Final Round.",10,BOTTOM_EDGE - 10);
-					else
-						g.drawString("Click This Bar to Start Round "+round+".",10,BOTTOM_EDGE - 10);
-
-					// display the rules
-					g.setColor(Color.white);
-					if (round == 1)
 					{
-						g.setFont(new Font("MonoSpaced",Font.BOLD, 80));
-						g.drawString("Battle", RIGHT_EDGE-350, TOP_EDGE+90);
-						g.drawString("Bots", RIGHT_EDGE-300, TOP_EDGE+160);
+						g.drawString("Final", RIGHT_EDGE-300, TOP_EDGE+90);
+						g.drawString("Round", RIGHT_EDGE-300, TOP_EDGE+160);
 					}
 					else
 					{
-						g.setFont(new Font("MonoSpaced",Font.BOLD, 80));
-						if (botsLeft <= ELIMINATIONS_PER_ROUND+1)
-						{
-							g.drawString("Final", RIGHT_EDGE-300, TOP_EDGE+90);
-							g.drawString("Round", RIGHT_EDGE-300, TOP_EDGE+160);
-						}
-						else
-						{
-							g.drawString("Round", RIGHT_EDGE-300, TOP_EDGE+90);
-							g.drawString("*"+round+"*", RIGHT_EDGE-250, TOP_EDGE+160);
-						}
+						g.drawString("Round", RIGHT_EDGE-300, TOP_EDGE+90);
+						g.drawString("*"+round+"*", RIGHT_EDGE-250, TOP_EDGE+160);
 					}
+				}
 
-					g.setFont(new Font("MonoSpaced",Font.BOLD, 22));
-					int y = (TOP_EDGE+BOTTOM_EDGE)/2;
-					g.drawString("The Rules", 10, y);
-					g.setColor(Color.lightGray);
-					g.setFont(new Font("MonoSpaced",Font.PLAIN, 14));
-					y+=16;
-					if (round == 1)
-						g.drawString("- "+NUM_BOTS+" robots to start",10,y);
-					else
-						g.drawString("- "+(NUM_BOTS-ELIMINATIONS_PER_ROUND*(round-1))+" robots left",10,y);
-					y+=15;
-					g.drawString("- each round lasts "+TIME_LIMIT+" seconds",10,y);
-					y+=15;
-					g.drawString("- "+ELIMINATIONS_PER_ROUND+" robots eliminated each round",10,y);
-					y+=15;
-					g.drawString("- each robot can have "+NUM_BULLETS+" bullets active at once",10,y);
-					y+=15;
-					g.drawString("- each robot can send "+(int)(TIME_LIMIT/SECS_PER_MSG)+" messages per round",10,y);
-					y+=15;
-					g.drawString("- each robot has "+PROCESSOR_LIMIT+" seconds of processor time",10,y);
-					y+=26;
-					g.setFont(new Font("MonoSpaced",Font.BOLD, 22));
-					g.setColor(Color.white);
-					g.drawString("Scoring", 10, y);
-					g.setFont(new Font("MonoSpaced",Font.PLAIN, 14));
-					g.setColor(Color.lightGray);
-					y+=16;
+				g.setFont(new Font("MonoSpaced",Font.BOLD, 22));
+				int y = (TOP_EDGE+BOTTOM_EDGE)/2;
+				g.drawString("The Rules", 10, y);
+				g.setColor(Color.lightGray);
+				g.setFont(new Font("MonoSpaced",Font.PLAIN, 14));
+				y+=16;
+				if (round == 1)
+					g.drawString("- "+NUM_BOTS+" robots to start",10,y);
+				else
+					g.drawString("- "+(NUM_BOTS-ELIMINATIONS_PER_ROUND*(round-1))+" robots left",10,y);
+				y+=15;
+				g.drawString("- each round lasts "+TIME_LIMIT+" seconds",10,y);
+				y+=15;
+				g.drawString("- "+ELIMINATIONS_PER_ROUND+" robots eliminated each round",10,y);
+				y+=15;
+				g.drawString("- each robot can have "+NUM_BULLETS+" bullets active at once",10,y);
+				y+=15;
+				g.drawString("- each robot can send "+(int)(TIME_LIMIT/SECS_PER_MSG)+" messages per round",10,y);
+				y+=15;
+				g.drawString("- each robot has "+PROCESSOR_LIMIT+" seconds of processor time",10,y);
+				y+=26;
+				g.setFont(new Font("MonoSpaced",Font.BOLD, 22));
+				g.setColor(Color.white);
+				g.drawString("Scoring", 10, y);
+				g.setFont(new Font("MonoSpaced",Font.PLAIN, 14));
+				g.setColor(Color.lightGray);
+				y+=16;
+				if (ELIMINATIONS_PER_ROUND == 0){
+					g.drawString("- "+df.format(KILL_SCORE)+" points per kill, "+df.format(POINTS_PER_SECOND*10)+" points per 10 seconds of survival",10,y);//round
+				}
+				else {
 					g.drawString("- "+df.format(KILL_SCORE*(round+1.0)/2)+" points per kill, "+df.format(POINTS_PER_SECOND*(round+1.0)/2*10)+" points per 10 seconds of survival",10,y);
-					y+=15;
-					g.drawString("- "+EFFICIENCY_BONUS+" point bonus for each unused second of processor time",10,y);
-					y+=15;
-					g.drawString("- "+ERROR_PENALTY+" point penalty for each exception thrown",10,y);
-					y+=15;
-					if (CUMULATIVE_SCORING)
-						g.drawString("- scores accumulate from round to round",10,y);
-					else
-						g.drawString("- robots' scores are reset between rounds",10,y);
-				
+				}
+				y+=15;
+				g.drawString("- "+EFFICIENCY_BONUS+" point bonus for each unused second of processor time",10,y);
+				y+=15;
+				g.drawString("- "+ERROR_PENALTY+" point penalty for each exception thrown",10,y);
+				y+=15;
+				if (CUMULATIVE_SCORING)
+					g.drawString("- scores accumulate from round to round",10,y);
+				else
+					g.drawString("- robots' scores are reset between rounds",10,y);
 			}
 
 			// the menu
@@ -1835,8 +1873,11 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 			if (state != GAME_PAUSED || pauseCount < PAUSE_FLASH_TIME/2)
 			{
 				g.setColor(Color.gray);
-				g.setFont(new Font("MonoSpaced",Font.BOLD, 45));
+				g.setFont(new Font("MonoSpaced",Font.BOLD, 30));//rowbottom
 				g.drawString(""+pad(df.format(Math.abs(TIME_LIMIT-timePlayed)),5,true),RIGHT_EDGE-152,BOTTOM_EDGE+40);
+
+				g.setFont(new Font("MonoSpaced",Font.BOLD, 10));//rowbottom
+				g.drawString("round "+round+" of "+ NUM_ROUNDS,RIGHT_EDGE-100,BOTTOM_EDGE+10);//rowbottom
 				if (speed != 1)
 				{
 					g.setFont(new Font("MonoSpaced",Font.BOLD, 10));
@@ -1880,7 +1921,6 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 
 			// dump the offline buffer to the screen (double-buffering)
 			//g2.drawImage(buffer,0,0,this);
-		
 		}
 	}
 
@@ -1894,7 +1934,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 		{
 			if (e.getY()<BOTTOM_EDGE) // click is on the playing field
 			{
-				if (state == WAIT_TO_START && (e.getY()>BOTTOM_EDGE-30))	// clicked on the wait to start message bar
+				if (state == WAIT_TO_START && e.getY()>BOTTOM_EDGE-30)	// clicked on the wait to start message bar
 				{
 					if (soundOn)
 						fanfare.play();
