@@ -1086,7 +1086,7 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 							boolean shotOK = false;				// can shoot?
 							for (int j=0; j<NUM_BULLETS; j++)
 							{
-								if (bullets[i][j] == null && currentBot.getBulletsLeft() > 0))
+								if (bullets[i][j] == null && currentBot.getBulletsLeft() > 0)
 									shotOK = true;
 							}
 							// 2b. The bots have to be passed temp arrays of bullets so they can't
@@ -1223,9 +1223,9 @@ public class BattleBotArena extends JPanel implements MouseListener, MouseWheelL
 										{
 											//ROWBOTTOM handles the looting from dead bodies
 											if (botsInfo[j].getBulletsLeft()>0&&botsInfo[j].isDead()){		
--												botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft()+botsInfo[j].getBulletsLeft());//live bot gets the bullets		
--												botsInfo[j].setBulletsLeft(0);		//the corpse is emptied
--											}
+												botsInfo[i].setBulletsLeft(botsInfo[i].getBulletsLeft()+botsInfo[j].getBulletsLeft());//live bot gets the bullets		
+												botsInfo[j].setBulletsLeft(0);		//the corpse is emptied
+											}
 											// reverse the previous move on collision
 											if (move == UP)
 												botsInfo[i].setY(botsInfo[i].getY()+BOT_SPEED);
